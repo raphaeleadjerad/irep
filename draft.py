@@ -1,6 +1,6 @@
 import functions as fc
 from elasticsearch import Elasticsearch
-HOST = 'elasticsearch-master'
+HOST = 'elasticsearch-master.projet-ssplab'
 
 
 def elastic():

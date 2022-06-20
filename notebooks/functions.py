@@ -2,6 +2,7 @@ import os
 import s3fs
 import pandas as pd
 from collections import ChainMap
+from elasticsearch import Elasticsearch
 
 # Create filesystem object
 S3_ENDPOINT_URL = "https://" + os.environ["AWS_S3_ENDPOINT"]
@@ -21,4 +22,17 @@ def read_all_raw(list_bases):
     list_dicts = [wrap_read_s3(fl) for fl in list_bases]
     list_dicts = dict(ChainMap(*list_dicts))
     return list_dicts
+
+
+# ELASTIC
+
+HOST = 'elasticsearch-master.projet-ssplab'
+
+
+def elastic():
+    """Connection avec Elastic sur le data lab"""
+    es = Elasticsearch([{'host': HOST, 'port': 9200, 'scheme': 'http'}], http_compress=True, request_timeout=200)
+    return es
+
+es = elastic()
 
