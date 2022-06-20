@@ -2,6 +2,9 @@ import os
 import s3fs
 import pandas as pd
 from collections import ChainMap
+from elasticsearch import Elasticsearch
+import geopandas as gpd
+
 
 # Create filesystem object
 S3_ENDPOINT_URL = "https://" + os.environ["AWS_S3_ENDPOINT"]
@@ -21,4 +24,37 @@ def read_all_raw(list_bases):
     list_dicts = [wrap_read_s3(fl) for fl in list_bases]
     list_dicts = dict(ChainMap(*list_dicts))
     return list_dicts
+
+def transform_wgs84(df, epsg):
+    etab = gpd.GeoDataFrame(
+        df,
+        geometry=gpd.points_from_xy(
+            df['coordonnees_x'],
+            df['coordonnees_y']
+        ),
+        crs = epsg)
+    etab = etab.to_crs(4326)
+    etab['x'] = etab['geometry'].x 
+    etab['y'] = etab['geometry'].y
+    etab = pd.DataFrame(etab)
+    return etab
+
+
+# ELASTIC
+
+HOST = 'elasticsearch-master.projet-ssplab'
+
+
+def elastic():
+    """Connection avec Elastic sur le data lab"""
+    es = Elasticsearch([{'host': HOST, 'port': 9200, 'scheme': 'http'}], http_compress=True, request_timeout=200)
+    return es
+
+es = elastic()
+
+def get_product_echo(echo):
+    if echo:
+        return echo[0]['_source']
+    else:
+        return None
 
