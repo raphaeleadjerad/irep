@@ -58,3 +58,25 @@ def get_product_echo(echo):
     else:
         return None
 
+
+def clean_data_etab(df):
+    etab = df
+    etab_not_null = etab.dropna(subset = ['code_epsg'])
+    etab_null = etab.loc[etab['code_epsg'].isnull()]
+    gb = etab_not_null.groupby("code_epsg")
+    gb = [gb.get_group(x) for x in gb.groups]
+    temp = [
+        transform_wgs84(
+            gb[idx],
+            gb[idx]['code_epsg'].iloc[0]
+        ) for idx in range(len(gb)) 
+    ]
+    temp = pd.concat(
+        temp
+    )
+    etab = pd.concat(
+        [temp, etab_null]
+    )
+    etab = etab.rename({'numero_siret': "numero_siret_true"}, axis = 1)
+    etab["code_apet"] = etab["code_ape"].str[:4]
+    return etab
