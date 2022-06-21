@@ -82,37 +82,36 @@ def get_product_echo(echo):
     else:
         return None
 
-def pipeline_request(df, request_template, cols):
+def pipeline_request(df_temp, request_template, cols):
+    header = '{"index" : "sirus_2020"}'
+    multiple_requetes = ""
+    n_etab = df_temp.shape[0] 
 
-  df['req'] = df.loc[:,cols].apply(
-      lambda s: '{ "index" : "sirus_2020" }\n' + request_template.format_map(s).replace("\n",""), axis = 1
-  )
-  multiple_requetes = "\n".join(df['req'])
+    for index, row in df_temp.iloc[0:n_etab][cols].iterrows():
+    
+        multiple_requetes+= header
+        multiple_requetes+= '\n'
+        multiple_requetes+= request_template.format_map(row).replace("\n","")
+        multiple_requetes+= '\n'
+    
+    res = es.msearch(body = multiple_requetes)
+    print(len(res['responses']))
 
-  res = es.msearch(body = multiple_requetes, max_concurrent_searches = 500)
+    df_temp["siret_elastic"] = [res['responses'][i]['hits']['hits'][0]["_source"]["siret_id"] if \
+        res['responses'][i]['hits']['hits'] else np.NaN for i in range(df_temp.shape[0]) ]
+    df_temp["match"] = (df_temp["numero_siret_true"].astype(str) == df_temp["siret_elastic"].astype(str))
 
-  temp = pd.json_normalize(res,record_path=["responses"])
+    df_temp["nom_etab_elastic"] = [res['responses'][i]['hits']['hits'][0]["_source"]["denom"] if \
+        res['responses'][i]['hits']['hits'] else np.NaN for i in range(df_temp.shape[0]) ]
 
-  out_elastic = temp.apply(
-          lambda l: get_product_echo(l['hits.hits']),
-          axis=1, result_type="expand")
-
-  df_out = pd.concat(
-      [df, out_elastic], axis = 1
-      )
-
-  df_out['siret'] = df_out['siret'].fillna(value=np.nan)
-  df_out['match_ok'] = (df_out['numero_siret_true'].astype(str) == df_out['siret'].astype(str))
-  df_out['denom'] = df_out['denom'].astype(str) 
-  df_out['nom_etablissement'] = df_out['nom_etablissement'].astype(str) 
-  df_out["textual_distance"] = pd.concat(
-          [df_out.apply(lambda x: rapidfuzz.fuzz.partial_ratio(
-              x["denom"],
+    df_temp['nom_etablissement'] = df_temp['nom_etablissement'].astype(str) 
+    df_temp["textual_distance"] = pd.concat(
+          [df_temp.apply(lambda x: rapidfuzz.fuzz.partial_ratio(
+              x["nom_etab_elastic"],
               x[y]),
               axis=1) for y in ["nom_etablissement"]],
           axis=1
       )
-
-  return df_out
-
+    print("Matched OK " + str(df_temp["match"].value_counts()/df_temp.shape[0]))
+    return df_temp
 
