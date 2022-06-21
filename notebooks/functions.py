@@ -104,13 +104,13 @@ def pipeline_request(df_temp, request_template, cols):
         res['responses'][i]['hits']['hits'] else np.NaN for i in range(df_temp.shape[0]) ]
 
     df_temp['nom_etablissement'] = df_temp['nom_etablissement'].astype(str) 
-    df_temp["textual_distance"] = pd.concat(
-          [df_temp.apply(lambda x: rapidfuzz.fuzz.partial_ratio(
-              x["nom_etab_elastic"],
-              x[y]),
-              axis=1) for y in ["nom_etablissement"]],
-          axis=1
-      )
+#    df_temp["textual_distance"] = pd.concat(
+#          [df_temp.apply(lambda x: rapidfuzz.fuzz.partial_ratio(
+#              x["nom_etab_elastic"],
+#              x[y]),
+#              axis=1) for y in ["nom_etablissement"]],
+#          axis=1
+#      )
     print(f"We found correct SIRET in {df_temp['match'].mean():.2%} of cases")
     return df_temp
 
