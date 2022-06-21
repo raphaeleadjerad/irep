@@ -95,7 +95,6 @@ def pipeline_request(df_temp, request_template, cols):
         multiple_requetes+= '\n'
     
     res = es.msearch(body = multiple_requetes)
-    print(len(res['responses']))
 
     df_temp["siret_elastic"] = [res['responses'][i]['hits']['hits'][0]["_source"]["siret_id"] if \
         res['responses'][i]['hits']['hits'] else np.NaN for i in range(df_temp.shape[0]) ]
@@ -112,6 +111,6 @@ def pipeline_request(df_temp, request_template, cols):
               axis=1) for y in ["nom_etablissement"]],
           axis=1
       )
-    print("Matched OK " + str(df_temp["match"].value_counts()/df_temp.shape[0]))
+    print(f"We found correct SIRET in {df_temp['match'].mean():.2%} of cases")
     return df_temp
 
