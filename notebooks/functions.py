@@ -5,6 +5,8 @@ from collections import ChainMap
 from elasticsearch import Elasticsearch
 import geopandas as gpd
 import rapidfuzz
+import numpy as np
+
 
 # Create filesystem object
 S3_ENDPOINT_URL = "https://" + os.environ["AWS_S3_ENDPOINT"]
@@ -82,10 +84,10 @@ def get_product_echo(echo):
 
 def pipeline_request(df, request_template, cols):
 
-  multiple_requetes = df.loc[:,cols].apply(
+  df['req'] = df.loc[:,cols].apply(
       lambda s: '{ "index" : "sirus_2020" }\n' + request_template.format_map(s).replace("\n",""), axis = 1
   )
-  multiple_requetes = "\n".join(multiple_requetes)
+  multiple_requetes = "\n".join(df['req'])
 
   res = es.msearch(body = multiple_requetes, max_concurrent_searches = 500)
 
@@ -99,9 +101,15 @@ def pipeline_request(df, request_template, cols):
       [df, out_elastic], axis = 1
       )
 
-  df_out['match_ok'] = (df['numero_siret_true'].astype(str) == df_out['siret'].astype(str))
+  df_out['siret'] = df_out['siret'].fillna(value=np.nan)
+  df_out['match_ok'] = (df_out['numero_siret_true'].astype(str) == df_out['siret'].astype(str))
+  df_out['denom'] = df_out['denom'].astype(str) 
+  df_out['nom_etablissement'] = df_out['nom_etablissement'].astype(str) 
   df_out["textual_distance"] = pd.concat(
-          [df_out.apply(lambda x: rapidfuzz.fuzz.partial_ratio(x["denom"], x[y]), axis=1) for y in ["nom_etablissement"]],
+          [df_out.apply(lambda x: rapidfuzz.fuzz.partial_ratio(
+              x["denom"],
+              x[y]),
+              axis=1) for y in ["nom_etablissement"]],
           axis=1
       )
 
