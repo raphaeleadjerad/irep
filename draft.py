@@ -87,6 +87,7 @@ df_geoloc = pd.read_csv(
 df_geolocalized = df_siret.merge(df_geoloc, on = "siret") 
 
 
+
 # Importation des bases
 dict_data = read_all_raw(list_bases)
 dict_data.keys()
@@ -125,6 +126,10 @@ mapping_elastic = {"mappings":
   }
 }
 
+# mapping
+if es.indices.exists('sirene'):
+    es.indices.delete('sirene')
+
 es.indices.create(index = "sirene", body = mapping_elastic)   
 
 
@@ -137,6 +142,11 @@ def gen_dict_from_pandas(index_name, df):
         yield {**header,**row}
 
 df_geolocalized['location'] = df_geolocalized['x_longitude'].astype(str)+ "," + df_geolocalized['y_latitude'].astype(str)
+
+
+from elasticsearch.helpers import bulk, parallel_bulk
+from collections import deque
+deque(parallel_bulk(client=es, actions=gen_dict_from_pandas("sirene", df_geolocalized), chunk_size = 1000, thread_count = 4))
 
 es_dict = gen_dict_from_pandas("sirene", df_geolocalized.head(10))
 
