@@ -1,6 +1,6 @@
 import functions as fc
 from elasticsearch import Elasticsearch
-HOST = 'elasticsearch-master'
+HOST = 'elasticsearch-master.projet-ssplab'
 
 
 
@@ -55,12 +55,18 @@ df['adresse'] = df['adresse'].replace(np.nan, "")
 
 df = df.loc[df['etatAdministratifEtablissement'] == "A"]
 
-df.rename({"denominationUsuelleEtablissement": "denom"}, axis = "columns", inplace = True)
+df.rename(
+  {"denominationUsuelleEtablissement": "denom",
+  "libelleCommuneEtablissement": "commune",
+  "codeCommuneEtablissement" : "code_commune",
+  "codePostalEtablissement": "code_postal"},
+  axis = "columns", inplace = True)
 
 df['ape'] = df['activitePrincipaleEtablissement'].str.replace("\.", "", regex = True)
 df['denom'] = df["denom"].replace(np.nan, "")
 
-df_siret = df.loc[:, ['siren', 'siret','adresse', 'ape', 'denom']]
+df_siret = df.loc[:, ['siren', 'siret','adresse', 'ape', 'denom', 'commune', 'code_commune','code_postal']]
+df_siret['code_postal'] = df_siret['code_postal'].replace(np.nan, "0").astype(int).astype(str).replace("0","")
 
 
 import requests
@@ -87,19 +93,21 @@ df_geoloc = pd.read_csv(
 df_geolocalized = df_siret.merge(df_geoloc, on = "siret") 
 
 
-
 # Importation des bases
 dict_data = read_all_raw(list_bases)
 dict_data.keys()
 
-mapping = es.indices.get_field_mapping(index='sirus_2020')
-mapping
+mapping = es_ssplab.indices.get_mapping(index='sirus_2020')
+mapping["sirus_2020_e_3_ngr_bool"]["mappings"]["properties"].keys()
+result = es_ssplab.search(index="sirus_2020", body={"query": {"match_all": {}}})
+
+mapping["sirus_2020_e_3_ngr_bool"]["mappings"]["properties"]["adr_et_loc_geo"]
 
 df_geolocalized.columns
 
 # indexation simple
 
-string_var = ["adresse", "denom", "ape"]
+string_var = ["adresse", "denom", "ape", "commune"]
 #map_string = {'type': 'text', 'fields': {'ngr': {'type': 'text', 'analyzer': 'ngram_analyzer'}, 'stem': {'type': 'text', 'norms': False, 'analyzer': 'stemming', 'search_analyzer': 'search_syn_rs'}}, 'norms': False}
 map_string = {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}}
 mapping_string = {l: map_string for l in string_var}
@@ -115,7 +123,7 @@ mapping_geoloc = {"geo": {
 }    
 
 # keywords
-keyword_var = ["siren","siret"]
+keyword_var = ["siren","siret","code_commune","code_postal"]
 map_keywords = {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
 mapping_keywords = {l: map_keywords for l in keyword_var}
 
