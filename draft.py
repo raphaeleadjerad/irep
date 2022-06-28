@@ -1,6 +1,6 @@
 import functions as fc
 from elasticsearch import Elasticsearch
-HOST = 'elasticsearch-master.projet-ssplab'
+HOST = 'elasticsearch-master'
 
 
 
@@ -97,6 +97,7 @@ df_geolocalized = df_siret.merge(df_geoloc, on = "siret")
 dict_data = read_all_raw(list_bases)
 dict_data.keys()
 
+
 mapping = es_ssplab.indices.get_mapping(index='sirus_2020')
 mapping["sirus_2020_e_3_ngr_bool"]["mappings"]["properties"].keys()
 result = es_ssplab.search(index="sirus_2020", body={"query": {"match_all": {}}})
@@ -113,13 +114,10 @@ map_string = {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_
 mapping_string = {l: map_string for l in string_var}
 
 # geoloc
-mapping_geoloc = {"geo": {
-             "properties": {
-                 "location": {
-                     "type": "geo_point"
-                 }
-             }
-         }
+mapping_geoloc = {
+  "location": {
+    "type": "geo_point"
+    }
 }    
 
 # keywords
@@ -149,18 +147,19 @@ def gen_dict_from_pandas(index_name, df):
         header= {"_op_type": "index","_index": index_name,"_id": i}
         yield {**header,**row}
 
-df_geolocalized['location'] = df_geolocalized['x_longitude'].astype(str)+ "," + df_geolocalized['y_latitude'].astype(str)
+df_geolocalized['location'] = df_geolocalized['y_latitude'].astype(str) + ", " + df_geolocalized['x_longitude'].astype(str)
 
 
 from elasticsearch.helpers import bulk, parallel_bulk
 from collections import deque
-deque(parallel_bulk(client=es, actions=gen_dict_from_pandas("sirene", df_geolocalized), chunk_size = 1000, thread_count = 4))
+deque(parallel_bulk(client=es, actions=gen_dict_from_pandas("sirene", df_geolocalized.head(5000)), chunk_size = 1000, thread_count = 4))
 
 es_dict = gen_dict_from_pandas("sirene", df_geolocalized.head(10))
 
 list(es_dict)
 
-
+result = es_ssplab.search(index="sirus_2020", body={"query": {"match_all": {}}})
+result["hits"]['hits'][0]['_source']
 
 # indexation --version non fonctionnelle
 
